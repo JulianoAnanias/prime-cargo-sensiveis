@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-orange: #F47920;
+  --secondary-orange: #E94E1B;
+  --dark-gray: #4D4D4D;
+  --light-gray: #F5F5F5;
+  --white: #FFFFFF;
+}
+
+body {
+  color: var(--dark-gray);
+  background-color: var(--light-gray);
+}
