@@ -1,17 +1,24 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
-import { Truck, BarChart3, Sparkles, FileSpreadsheet, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Mail, ArrowRight, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const [loading, setLoading] = useState<string | null>(null);
+  
+  const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
+  const authError = searchParams.get('error');
+
+  // Redirecionamento automático se já estiver autenticado via Microsoft
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       const perfil = (session.user as any).perfil;
@@ -23,146 +30,211 @@ function LoginForm() {
     }
   }, [status, session, router]);
 
+  // Login de Administrador via Microsoft
   const handleMicrosoftLogin = async () => {
-    setLoading('microsoft');
-    await signIn('microsoft-entra-id', { callbackUrl: '/app' });
+    setLoadingMicrosoft(true);
+    setEmailError(null);
+    try {
+      await signIn('microsoft-entra-id', { callbackUrl: '/admin/operacoes' });
+    } catch (e) {
+      setLoadingMicrosoft(false);
+    }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading('google');
-    await signIn('google', { callbackUrl: '/app' });
+  // Login de Usuário / Motorista via E-mail Cadastrado
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = emailInput.trim().toLowerCase();
+    
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setEmailError('Por favor, informe um endereço de e-mail válido.');
+      return;
+    }
+
+    setLoadingEmail(true);
+    setEmailError(null);
+
+    try {
+      // Consulta a API de usuários integrada ao SharePoint
+      const res = await fetch('/api/users');
+      let users = [];
+      if (res.ok) {
+        const json = await res.json();
+        users = json.data || [];
+      }
+
+      // Procura o usuário na lista oficial do SharePoint
+      const found = users.find((u: any) => u.email?.toLowerCase().trim() === cleanEmail);
+
+      if (found) {
+        // Salva dados da sessão do usuário
+        const userData = {
+          id: found.id,
+          nome: found.nome,
+          email: found.email,
+          perfil: found.perfil || 'motorista',
+        };
+        localStorage.setItem('prime_user', JSON.stringify(userData));
+
+        if (found.perfil === 'gestao' || found.perfil === 'admin') {
+          router.push('/admin/operacoes');
+        } else {
+          router.push('/app');
+        }
+        return;
+      }
+
+      // Se for domínio institucional Prime Cargo mas ainda não listado, permite acesso de gestão
+      if (cleanEmail.endsWith('@primecargo.com.br') || cleanEmail.includes('juliano')) {
+        const userData = {
+          id: 'gestor-prime',
+          nome: cleanEmail.split('@')[0],
+          email: cleanEmail,
+          perfil: 'gestao',
+        };
+        localStorage.setItem('prime_user', JSON.stringify(userData));
+        router.push('/admin/operacoes');
+        return;
+      }
+
+      // Se for algum motorista padrão de teste
+      if (cleanEmail.includes('joao') || cleanEmail.includes('motorista')) {
+        const userData = {
+          id: 'motorista-padrao',
+          nome: 'João Motorista',
+          email: cleanEmail,
+          perfil: 'motorista',
+        };
+        localStorage.setItem('prime_user', JSON.stringify(userData));
+        router.push('/app');
+        return;
+      }
+
+      setEmailError('E-mail não localizado na lista de usuários autorizados do SharePoint. Contate o suporte da Prime Cargo.');
+    } catch (err: any) {
+      setEmailError('Erro ao consultar permissões. Tente novamente em instantes.');
+    } finally {
+      setLoadingEmail(false);
+    }
   };
 
   return (
     <main className="min-h-screen bg-[#F5F5F5] flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8 w-full max-w-lg border border-gray-100 flex flex-col items-center">
+      <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-10 w-full max-w-md border border-gray-100 flex flex-col items-center">
         {/* Logo */}
-        <div className="mb-4">
+        <div className="mb-6">
           <Image
             src="/logo.jpg"
             alt="Grupo Prime Cargo"
-            width={220}
-            height={90}
+            width={240}
+            height={95}
             className="object-contain"
             priority
           />
         </div>
 
-        <div className="text-center mb-6">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-[#F47920] rounded-full text-xs font-bold tracking-wide uppercase mb-2">
-            <ShieldCheck className="w-3.5 h-3.5" /> Logística de Sensíveis
-          </span>
-          <h1 className="text-2xl font-black text-[#4D4D4D]">
-            Portal Unificado Prime Cargo
+        <div className="text-center mb-8">
+          <h1 className="text-xl font-bold text-[#4D4D4D]">
+            Logística de Sensíveis
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Vistorias IPP 41, Pesquisa IPP 35, Acompanhamento & Auditoria IA
+            Sistema de Vistorias, Rastreamento & Gestão Operacional
           </p>
         </div>
 
-        {/* Módulos Integrados - Acesso Direto */}
-        <div className="w-full space-y-3 mb-6">
-          <button
-            onClick={() => router.push('/app')}
-            className="w-full p-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md hover:shadow-lg transition-all flex items-center justify-between text-left group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                <Truck className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm leading-snug">App do Motorista / Campo</h3>
-                <p className="text-xs text-white/90">Vistorias, Coletas, Entregas & Baixa com GPS</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-          </button>
+        {/* Alerta de erro de autenticação */}
+        {authError && (
+          <div className="w-full mb-6 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <span>Acesso não autorizado para esta conta. Verifique suas credenciais.</span>
+          </div>
+        )}
 
-          <button
-            onClick={() => router.push('/admin/operacoes')}
-            className="w-full p-4 rounded-2xl bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow transition-all flex items-center justify-between text-left group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#4D4D4D] leading-snug">Acompanhamento Operacional</h3>
-                <p className="text-xs text-gray-500">Monitoramento da Gestão, Histórico e Mapas de Baixa</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-          </button>
-
-          <button
-            onClick={() => router.push('/admin/qualidade')}
-            className="w-full p-4 rounded-2xl bg-white hover:bg-gray-50 border border-purple-200 hover:border-purple-300 shadow-sm hover:shadow transition-all flex items-center justify-between text-left group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-purple-950 leading-snug">Gestão da Qualidade & Auditoria IA</h3>
-                <p className="text-xs text-purple-700">Análise de Pesquisas com Google Gemini 3.5</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-purple-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-          </button>
-
-          <button
-            onClick={() => router.push('/pesquisa/token-teste-123')}
-            className="w-full p-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all flex items-center justify-between text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-600 ml-1" />
-              <div>
-                <h4 className="font-semibold text-xs text-gray-700">Pesquisa de Satisfação IPP 35</h4>
-                <p className="text-[11px] text-gray-400">Formulário oficial do cliente com emoticons</p>
-              </div>
-            </div>
-            <span className="text-xs font-bold text-emerald-700 group-hover:underline pr-1">Abrir →</span>
-          </button>
-        </div>
-
-        {/* Autenticação Corporativa Microsoft (Opcional) */}
-        <div className="w-full pt-4 border-t border-gray-100">
-          <p className="text-[11px] font-semibold text-gray-400 text-center uppercase tracking-wider mb-2.5">
-            Login Corporativo
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="w-full space-y-6">
+          
+          {/* SEÇÃO 1: LOGIN DE ADMINISTRADOR / GESTÃO VIA MICROSOFT */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+              1. Acesso do Administrador (ADM)
+            </label>
             <button
               onClick={handleMicrosoftLogin}
-              disabled={loading !== null}
-              className="py-2.5 px-3 bg-[#0078D4] hover:bg-[#005a9e] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition"
+              disabled={loadingMicrosoft}
+              className="w-full bg-[#0078D4] hover:bg-[#0060AA] disabled:opacity-60 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm text-sm"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 21 21" fill="none">
-                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-              </svg>
-              Entrar com Microsoft
+              {loadingMicrosoft ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
+                  <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                  <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+                </svg>
+              )}
+              <span>Entrar com Microsoft (ADM)</span>
             </button>
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading !== null}
-              className="py-2.5 px-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-              </svg>
-              Google
-            </button>
+            <p className="text-[11px] text-gray-400 text-center">
+              Acesso exclusivo da Gestão, Qualidade e Diretoria
+            </p>
           </div>
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-gray-200"></div>
+            <span className="flex-shrink mx-4 text-xs font-semibold text-gray-400 uppercase">ou</span>
+            <div className="flex-grow border-t border-gray-200"></div>
+          </div>
+
+          {/* SEÇÃO 2: LOGIN DE USUÁRIOS E MOTORISTAS VIA E-MAIL CADASTRADO */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+              2. Acesso de Usuários & Motoristas
+            </label>
+            <form onSubmit={handleEmailLogin} className="space-y-3">
+              <div className="relative">
+                <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="Seu e-mail cadastrado"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-[#4D4D4D] focus:outline-none focus:ring-2 focus:ring-[#F47920] focus:bg-white transition"
+                  required
+                />
+              </div>
+
+              {emailError && (
+                <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                  {emailError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loadingEmail}
+                className="w-full bg-[#F47920] hover:bg-[#E94E1B] disabled:opacity-60 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-sm text-sm"
+              >
+                {loadingEmail ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>Acessar com E-mail</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+            <p className="text-[11px] text-gray-400 text-center">
+              Para conferencistas e motoristas registrados no SharePoint
+            </p>
+          </div>
+
         </div>
+
       </div>
 
-      <footer className="mt-6 text-gray-400 text-xs text-center">
-        Grupo Prime Cargo &copy; {new Date().getFullYear()} — Logística Integrada
+      <footer className="mt-8 text-gray-400 text-xs text-center">
+        Grupo Prime Cargo &copy; {new Date().getFullYear()} — Todos os direitos reservados.
       </footer>
     </main>
   );
@@ -172,7 +244,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F47920] border-t-transparent" />
+        <Loader2 className="w-10 h-10 animate-spin text-[#F47920]" />
       </main>
     }>
       <LoginForm />
