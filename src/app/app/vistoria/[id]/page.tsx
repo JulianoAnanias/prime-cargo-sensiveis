@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import {
   Camera, MapPin, Save, Check, FileSignature, AlertTriangle,
   ChevronDown, ChevronUp, Eye, ArrowLeft, Loader2, X, RefreshCw, Upload, Image as ImageIcon, Video, Truck, Plus,
-  Star, HeartHandshake, UserX, MessageSquare
+  Star, HeartHandshake, UserX, MessageSquare, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -141,6 +141,62 @@ function VistoriaFormContent() {
     q4: 'Otimo',
     sugestoes: ''
   });
+
+  // --- Assistente de Busca ESL TMS (Autopreenchimento) ---
+  const [eslSearchType, setEslSearchType] = useState('NF');
+  const [eslSearchTerm, setEslSearchTerm] = useState('');
+  const [isEslLoading, setIsEslLoading] = useState(false);
+  const [eslMessage, setEslMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  const handleEslLookup = async () => {
+    if (!eslSearchTerm.trim()) return;
+    setIsEslLoading(true);
+    setEslMessage(null);
+
+    try {
+      const res = await fetch(`/api/esl/consultar?tipo=${eslSearchType}&numero=${encodeURIComponent(eslSearchTerm.trim())}`);
+      const json = await res.json();
+
+      if (json.success && json.data) {
+        const d = json.data;
+        setAtendimento(prev => ({
+          ...prev,
+          cliente: d.cliente || prev.cliente,
+          local: d.local || d.endereco || prev.local,
+          endereco: d.endereco || prev.endereco,
+          tipoDocumento: d.tipoDocumento === 'CTE' ? 'CT-e' : d.tipoDocumento === 'MINUTA' ? 'coleta' : 'NF',
+          numeroDocumento: d.numeroDocumento || prev.numeroDocumento,
+          minutaDACTe: d.minuta ? `MIN-${d.minuta}` : (d.cte ? `CTE-${d.cte}` : prev.minutaDACTe),
+          volumetria: d.volumes ? `${d.volumes} Volume(s)${d.peso ? ` - ${d.peso} kg` : ''}` : prev.volumetria,
+          equipamentoDescricao: d.natureza || prev.equipamentoDescricao,
+        }));
+
+        if (d.peso) {
+          setDimensoes(prev => ({
+            ...prev,
+            peso: Number(d.peso),
+          }));
+        }
+
+        setEslMessage({
+          type: 'success',
+          text: `✓ Dados localizados no ESL! Cliente, endereço e documento preenchidos automaticamente. Você pode editar qualquer campo livremente.`
+        });
+      } else {
+        setEslMessage({
+          type: 'info',
+          text: json.message || 'Documento não localizado no ESL TMS. Você pode preencher os campos normalmente.'
+        });
+      }
+    } catch (err: any) {
+      setEslMessage({
+        type: 'error',
+        text: 'Não foi possível consultar o ESL no momento. Preencha os campos manualmente.'
+      });
+    } finally {
+      setIsEslLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -980,6 +1036,89 @@ function VistoriaFormContent() {
                   </p>
                 </div>
               )}
+
+              {/* ═══ ASSISTENTE DE BUSCA NO ESL TMS (OPCIONAL) ═══ */}
+              <div className="bg-gradient-to-r from-orange-50/90 via-white to-orange-50/90 p-3.5 rounded-xl border border-orange-200/90 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                    <Search className="w-3.5 h-3.5 text-[#F47920]" />
+                    <span>Consultar no ESL TMS (Autopreenchimento)</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
+                    Opcional
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={eslSearchType}
+                    onChange={(e) => setEslSearchType(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2.5 py-2 text-xs font-bold bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#F47920] shrink-0"
+                  >
+                    <option value="NF">NF</option>
+                    <option value="MINUTA">Minuta</option>
+                    <option value="CTE">CT-e</option>
+                  </select>
+
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={eslSearchTerm}
+                      onChange={(e) => setEslSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleEslLookup();
+                        }
+                      }}
+                      placeholder={
+                        eslSearchType === 'MINUTA'
+                          ? 'Nº da Minuta (ex: 134827)'
+                          : eslSearchType === 'CTE'
+                          ? 'Nº do CT-e (ex: 87528)'
+                          : 'Nº da Nota Fiscal (ex: 48486)'
+                      }
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#F47920]"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleEslLookup}
+                    disabled={isEslLoading || !eslSearchTerm.trim()}
+                    className="px-3.5 py-2 bg-[#F47920] hover:bg-[#E94E1B] disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs"
+                  >
+                    {isEslLoading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Search className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isEslLoading ? 'Buscando...' : 'Buscar'}</span>
+                  </button>
+                </div>
+
+                {eslMessage && (
+                  <div
+                    className={cn(
+                      "text-[11px] p-2.5 rounded-lg flex items-center justify-between gap-2 transition-all",
+                      eslMessage.type === 'success'
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : eslMessage.type === 'error'
+                        ? "bg-red-50 text-red-700 border border-red-200"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
+                    )}
+                  >
+                    <span className="flex-1 font-medium">{eslMessage.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEslMessage(null)}
+                      className="text-gray-400 hover:text-gray-700 text-xs font-bold px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Tipo de Documento & Número */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
