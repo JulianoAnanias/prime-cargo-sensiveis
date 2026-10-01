@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     const currentYear = new Date().getFullYear();
-    const previousYear = currentYear - 1;
-    const dateRange = `${previousYear}-01-01 - ${currentYear}-12-31`;
+    const dateRange = `${currentYear}-01-01 - ${currentYear}-12-31`;
 
     const url = new URL(`${ESL_BASE_URL}/api/analytics/reports/${TEMPLATE_DELIVERIES_ID}/data`);
     url.searchParams.set('per', '10');
