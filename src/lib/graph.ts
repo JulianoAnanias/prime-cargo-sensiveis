@@ -168,6 +168,26 @@ export async function updateSharePointListItem(
 }
 
 /**
+ * Excluir um item de uma lista do SharePoint.
+ */
+export async function deleteSharePointListItem(
+  siteId: string,
+  listName: string,
+  itemId: string
+) {
+  const client = getGraphClient();
+  try {
+    await client
+      .api(`/sites/${siteId}/lists/${listName}/items/${itemId}`)
+      .delete();
+    return true;
+  } catch (error: any) {
+    console.error(`Erro ao excluir item ${itemId} da lista ${listName}:`, error?.message);
+    throw new Error(`Falha ao excluir registro: ${error?.message}`);
+  }
+}
+
+/**
  * Verificar se um item já existe por um campo específico (para idempotência).
  */
 export async function checkItemExists(

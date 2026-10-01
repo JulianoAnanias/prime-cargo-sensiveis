@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Texto da pesquisa não informado' }, { status: 400 });
     }
     const result = await analyzePesquisa(body.text);
-    return NextResponse.json({ success: true, data: result, provider: 'Google Gemini 3.5 Flash' });
+    return NextResponse.json({ success: true, data: result, provider: 'Prime IA Auditoria' });
   } catch (error: any) {
     console.error('Erro na rota /api/analise-ia:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

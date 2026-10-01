@@ -134,7 +134,7 @@ export default function AdminDashboard() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-purple-600" />
-              <h3 className="text-base font-bold text-[#4D4D4D]">Auditoria IA (Gemini 3.5)</h3>
+              <h3 className="text-base font-bold text-[#4D4D4D]">Auditoria IA Inteligente</h3>
             </div>
             <p className="text-xs text-gray-500">
               Diagnóstico automatizado das pesquisas IPP 35 respondidas pelos clientes.

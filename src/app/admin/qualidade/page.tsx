@@ -71,7 +71,7 @@ export default function AdminQualidade() {
         body: JSON.stringify({ text: payloadText })
       });
 
-      if (!res.ok) throw new Error('Falha ao processar análise Gemini');
+      if (!res.ok) throw new Error('Falha ao processar análise inteligente');
       const data = await res.json();
       
       setPesquisas(prev => prev.map(p => p.id === item.id ? { ...p, analiseIA: data.data } : p));
@@ -105,7 +105,7 @@ export default function AdminQualidade() {
               <h1 className="text-xl font-bold text-[#4D4D4D] flex items-center gap-2">
                 Gestão da Qualidade & Auditoria IA
                 <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> Google Gemini 3.5 Ativo
+                  <Sparkles className="w-3 h-3" /> Auditoria IA Ativa
                 </span>
               </h1>
               <p className="text-xs text-gray-500">IPP 35 - Pesquisa sobre Serviço Prestado e Análise Inteligente</p>
@@ -136,7 +136,7 @@ export default function AdminQualidade() {
             }`}
           >
             <Sparkles className="w-4 h-4 text-purple-600" />
-            Análises de IA (Gemini)
+            Análises de IA
           </button>
           <button 
             onClick={() => setActiveTab('alertas')} 
@@ -169,15 +169,15 @@ export default function AdminQualidade() {
                   >
                     {analyzingId === item.id ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" /> Analisando com Gemini...
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Analisando com IA...
                       </>
                     ) : item.analiseIA ? (
                       <>
-                        <Sparkles className="w-4 h-4" /> Reanalisar com Gemini
+                        <Sparkles className="w-4 h-4" /> Reanalisar com IA
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4" /> Analisar com Gemini IA
+                        <Sparkles className="w-4 h-4" /> Analisar com IA
                       </>
                     )}
                   </button>
@@ -215,7 +215,7 @@ export default function AdminQualidade() {
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="w-4 h-4 text-purple-700" />
                       <span className="text-xs font-bold text-purple-900 uppercase tracking-wide">
-                        Diagnóstico Gemini 3.5 Flash: {item.analiseIA.classificacaoSentimento}
+                        Diagnóstico da IA: {item.analiseIA.classificacaoSentimento}
                       </span>
                     </div>
                     <p className="text-xs text-purple-950 font-medium">{item.analiseIA.resumo}</p>
@@ -240,7 +240,7 @@ export default function AdminQualidade() {
                 <Sparkles className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#4D4D4D]">Nenhuma análise executada ainda</h3>
                 <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                  Clique na aba "Pesquisas Respondidas" e selecione "Analisar com Gemini IA" em qualquer pesquisa para gerar um relatório inteligente em tempo real.
+                  Clique na aba "Pesquisas Respondidas" e selecione "Analisar com IA" em qualquer pesquisa para gerar um relatório inteligente em tempo real.
                 </p>
               </div>
             ) : (
@@ -251,7 +251,7 @@ export default function AdminQualidade() {
                     <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                       <div>
                         <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
-                          Auditoria IA Gemini 3.5 Flash
+                          Auditoria IA Especializada
                         </span>
                         <h2 className="text-base font-bold text-[#4D4D4D] mt-1">{item.cliente} ({item.documento})</h2>
                       </div>

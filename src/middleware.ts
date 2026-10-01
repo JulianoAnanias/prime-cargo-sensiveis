@@ -2,19 +2,35 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
 
-  // Se as credenciais do Azure/Google ainda não foram preenchidas no ambiente local,
-  // permite a navegação para testes e homologação das telas do app e admin.
-  const hasAuthSetup = Boolean(process.env.AZURE_AD_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
+  // 1. Sessão NextAuth (Microsoft Entra ID)
+  const nextAuthUser = req.auth?.user as any;
 
-  if (hasAuthSetup && (pathname.startsWith("/app") || pathname.startsWith("/admin"))) {
+  // 2. Sessão via Cookie Seguro de Motorista / Usuário
+  const sessionCookie = req.cookies.get("prime_session")?.value;
+  let driverUser: any = null;
+  if (sessionCookie) {
+    try {
+      driverUser = JSON.parse(decodeURIComponent(sessionCookie));
+    } catch {
+      try {
+        driverUser = JSON.parse(sessionCookie);
+      } catch {}
+    }
+  }
+
+  const activeUser = nextAuthUser || driverUser;
+  const isLoggedIn = Boolean(activeUser);
+  const userPerfil = activeUser?.perfil || "motorista";
+
+  // Rotas protegidas (/app e /admin)
+  if (pathname.startsWith("/app") || pathname.startsWith("/admin")) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/", req.url));
     }
-    
-    const userPerfil = (req.auth?.user as any)?.perfil;
+
+    // Motoristas não entram no painel administrativo
     if (pathname.startsWith("/admin") && userPerfil === "motorista") {
       return NextResponse.redirect(new URL("/app", req.url));
     }
@@ -24,5 +40,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons|logo.jpg|icon-app.png).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons|logo.png|logo.jpg|icon-app.png).*)"],
 };

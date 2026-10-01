@@ -1,23 +1,25 @@
 {
   "name": "Prime Cargo Vistorias",
-  "short_name": "PC Vistorias",
-  "description": "Aplicativo PWA para vistorias da Prime Cargo",
+  "short_name": "Prime Cargo",
+  "description": "Aplicativo PWA Oficial de Vistorias Sensíveis do Grupo Prime Cargo",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFFFFF",
   "theme_color": "#F47920",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

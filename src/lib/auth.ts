@@ -19,47 +19,105 @@ declare module 'next-auth' {
   }
 }
 
+import { sql } from './neon';
+
 /**
- * Verifica se o e-mail está cadastrado e ativo na lista de usuários do SharePoint.
+ * Verifica se o e-mail corporativo possui domínio @primecargo ou @primestorage
+ */
+export function isAllowedCorporateDomain(email: string): boolean {
+  if (!email || !email.includes('@')) return false;
+  const domain = email.toLowerCase().trim().split('@')[1] || '';
+  return domain.includes('primecargo') || domain.includes('primestorage');
+}
+
+/**
+ * Verifica se o usuário tem autorização para login via Microsoft:
+ * 1. Deve possuir domínio corporativo (@primecargo ou @primestorage)
+ * 2. Deve estar PRESENTE no cadastro de usuários (Neon Postgres ou SharePoint)
+ * 3. Deve estar com status 'ativo'
  */
 async function verificarUsuarioAutorizado(email: string) {
+  const cleanEmail = email.toLowerCase().trim();
+
+  // 1. Validação obrigatória de domínio corporativo
+  if (!isAllowedCorporateDomain(cleanEmail)) {
+    console.warn(`[Auth] Acesso negado para ${cleanEmail}: apenas contas corporativas @primecargo ou @primestorage são permitidas.`);
+    return null;
+  }
+
   try {
+    // 2. Consulta tabela de usuários no banco Neon Postgres (rápido e prioritário)
+    try {
+      const dbRows: any = await (sql as any).query(
+        `SELECT id, nome, email, perfil, situacao FROM app_users WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+        [cleanEmail]
+      );
+      if (dbRows && dbRows.length > 0) {
+        const u = dbRows[0];
+        if (u.situacao && u.situacao.toLowerCase() !== 'ativo') {
+          console.warn(`[Auth] Usuário ${cleanEmail} está com cadastro inativo.`);
+          return null;
+        }
+        return {
+          id: String(u.id),
+          nome: (u.nome || cleanEmail.split('@')[0]) as string,
+          email: cleanEmail,
+          perfil: (u.perfil || 'gestao') as Perfil,
+          situacao: u.situacao || 'ativo',
+        };
+      }
+    } catch (dbErr) {
+      console.warn('[Auth] Alerta ao consultar app_users no Neon:', dbErr);
+    }
+
+    // 3. Consulta lista de Usuários no SharePoint (com sincronização para o Neon)
     const siteId = process.env.SHAREPOINT_SITE_ID;
     if (siteId) {
-      const items = await getSharePointListItems(siteId, SHAREPOINT_LISTS.USUARIOS);
-      const found = items.find((item: any) => {
-        const e = item.fields?.EmailUsuario || item.fields?.Email || item.fields?.Title || '';
-        return e.toLowerCase().trim() === email.toLowerCase().trim();
-      });
+      try {
+        const items = await getSharePointListItems(siteId, SHAREPOINT_LISTS.USUARIOS);
+        const found = items.find((item: any) => {
+          const e = item.fields?.EmailUsuario || item.fields?.Email || item.fields?.Title || '';
+          return e.toLowerCase().trim() === cleanEmail;
+        });
 
-      if (found) {
-        return {
-          id: String(found.id),
-          nome: (found.fields?.NomeUsuario || found.fields?.Nome || found.fields?.Title || email) as string,
-          email: email,
-          perfil: (found.fields?.Perfil || 'gestao') as Perfil,
-          situacao: (found.fields?.Situacao || 'ativo') as string,
-        };
+        if (found) {
+          const situacao = (found.fields?.Situacao || 'ativo').toLowerCase();
+          if (situacao !== 'ativo') {
+            console.warn(`[Auth] Usuário ${cleanEmail} está inativo no SharePoint.`);
+            return null;
+          }
+
+          const perfil = (found.fields?.Perfil || 'gestao') as Perfil;
+          const nome = (found.fields?.NomeUsuario || found.fields?.Nome || found.fields?.Title || cleanEmail.split('@')[0]) as string;
+
+          // Auto-sincroniza no Neon Postgres
+          try {
+            await (sql as any).query(
+              `INSERT INTO app_users (nome, email, perfil, situacao, atualizado_em)
+               VALUES ($1, $2, $3, 'ativo', NOW())
+               ON CONFLICT (email) DO UPDATE
+               SET nome = EXCLUDED.nome, perfil = EXCLUDED.perfil, situacao = 'ativo', atualizado_em = NOW()`,
+              [nome, cleanEmail, perfil]
+            );
+          } catch (e) {}
+
+          return {
+            id: String(found.id),
+            nome,
+            email: cleanEmail,
+            perfil,
+            situacao: 'ativo',
+          };
+        }
+      } catch (spErr) {
+        console.warn('[Auth] Alerta ao consultar SharePoint:', spErr);
       }
     }
 
-    // Se for e-mail institucional corporativo da Prime Cargo
-    if (email.toLowerCase().endsWith('@primecargo.com.br') || email.toLowerCase().includes('juliano')) {
-      return {
-        id: 'prime-corp-user',
-        nome: email.split('@')[0],
-        email: email,
-        perfil: 'gestao' as Perfil,
-        situacao: 'ativo',
-      };
-    }
-
+    console.warn(`[Auth] O e-mail ${cleanEmail} possui domínio corporativo válido, mas NÃO está presente no cadastro de usuários.`);
     return null;
   } catch (error) {
-    console.error('Alerta ao verificar usuário no SharePoint:', error);
-    if (email.toLowerCase().endsWith('@primecargo.com.br')) {
-      return { id: 'temp-user', nome: email, email, perfil: 'gestao' as Perfil, situacao: 'ativo' };
-    }
+    console.error('[Auth] Erro crítico ao verificar usuário:', error);
     return null;
   }
 }

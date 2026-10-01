@@ -10,6 +10,7 @@ import {
   Sparkles, 
   Users, 
   Truck, 
+  Mail,
   LogOut, 
   ShieldCheck, 
   Menu, 
@@ -38,10 +39,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const currentUserPerfil = session?.user?.perfil || localUser?.perfil || 'Gestão';
 
   const navItems = [
-    { label: 'Operações & Vistorias', href: '/admin/operacoes', icon: ClipboardList },
-    { label: 'Painel de Indicadores', href: '/admin', icon: BarChart3 },
-    { label: 'Qualidade & Auditoria IA', href: '/admin/qualidade', icon: Sparkles },
-    { label: 'Usuários & Motoristas', href: '/admin/usuarios', icon: Users },
+    { label: 'Operações & Vistorias', shortLabel: 'Operações', href: '/admin/operacoes', icon: ClipboardList },
+    { label: 'Frota de Veículos', shortLabel: 'Veículos', href: '/admin/veiculos', icon: Truck },
+    { label: 'Gestão de E-mails', shortLabel: 'E-mails', href: '/admin/configuracoes', icon: Mail },
+    { label: 'Painel de Indicadores', shortLabel: 'Indicadores', href: '/admin', icon: BarChart3 },
+    { label: 'Qualidade & Auditoria', shortLabel: 'Qualidade', href: '/admin/qualidade', icon: Sparkles },
+    { label: 'Usuários & Motoristas', shortLabel: 'Usuários', href: '/admin/usuarios', icon: Users },
   ];
 
   const handleLogout = () => {
@@ -54,28 +57,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-[#F5F5F5] flex flex-col">
       {/* Barra de Navegação Corporativa da Gestão / ADM */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-16 gap-3">
             
             {/* Logo + Título */}
-            <div className="flex items-center gap-4">
-              <Link href="/admin/operacoes" className="flex items-center gap-3">
+            <div className="flex items-center shrink-0">
+              <Link href="/admin/operacoes" className="flex items-center gap-3 shrink-0 group py-1">
                 <Image
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="Grupo Prime Cargo"
-                  width={140}
-                  height={45}
-                  className="object-contain"
+                  width={150}
+                  height={42}
+                  className="object-contain h-9 sm:h-10 w-auto shrink-0 transition-opacity group-hover:opacity-90"
                   priority
                 />
-                <span className="hidden sm:inline-block text-xs font-black tracking-wider uppercase px-2.5 py-1 bg-gray-900 text-white rounded-md">
-                  Painel ADM
-                </span>
+                <div className="hidden sm:flex flex-col border-l border-gray-200 pl-3">
+                  <span className="text-[11px] font-black tracking-widest uppercase text-[#F47920] leading-none">
+                    Sensíveis
+                  </span>
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-500 mt-0.5 leading-none">
+                    Painel ADM
+                  </span>
+                </div>
               </Link>
             </div>
 
             {/* Abas de Navegação Desktop */}
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 shrink-0">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
@@ -83,34 +91,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    className={`flex items-center gap-1.5 px-3 xl:px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'bg-[#F47920] text-white shadow-sm'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="hidden xl:inline">{item.label}</span>
+                    <span className="inline xl:hidden">{item.shortLabel}</span>
                   </Link>
                 );
               })}
             </nav>
 
             {/* Ações à Direita */}
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2.5 shrink-0 ml-auto lg:ml-0">
               {/* Botão de Alternar para App do Motorista */}
               <Link
                 href="/app"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-[#F47920] hover:bg-orange-100 text-xs font-bold rounded-lg transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-[#F47920] hover:bg-orange-100 text-xs font-bold rounded-xl transition shrink-0"
                 title="Visualizar a tela do motorista em campo"
               >
-                <Truck className="w-4 h-4" />
-                <span>Visão do Motorista</span>
+                <Truck className="w-4 h-4 shrink-0" />
+                <span>Visão Motorista</span>
               </Link>
 
               {/* Usuário Logado */}
-              <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-                <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-xs">
+              <div className="flex items-center gap-2 border-l border-gray-200 pl-3 shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
                   {currentUserName.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden md:block text-left">
@@ -126,7 +135,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {/* Botão Sair */}
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition"
+                className="p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition shrink-0"
                 title="Sair do sistema"
               >
                 <LogOut className="w-4 h-4" />
